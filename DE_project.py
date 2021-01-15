@@ -51,7 +51,8 @@ degradation = (int(st.sidebar.number_input('Degradation (%)',min_value=0,value=1
 st.sidebar.subheader(' ')
 #
 omcharge= int(st.sidebar.number_input('O&M Charges (%)',min_value=0,value=1,step=1))/100 # in decimal, not percentage
-franchise = 1 if int(st.sidebar.number_input('Franchise Fee (% from Revenue)',min_value=0,value=1,step=1)) else int(st.sidebar.number_input('Franchise Fee (% from Asset)',min_value=0,value=1,step=1))
+franchise_revenue = int(st.sidebar.number_input('Franchise Fee (% from Revenue)',min_value=0,value=1,step=1))
+franchise_asset =int(st.sidebar.number_input('Franchise Fee (% from Asset)',min_value=0,value=1,step=1))
 insurance = int(st.sidebar.number_input('Insurance Cost (Rs. Per 1000)',min_value=0,value=1,step=1))
 audit = int(st.sidebar.number_input('Audit Cost (Annual)',min_value=0,value=1,step=1))
 capexrep= int(st.sidebar.number_input('Capex Replacement (% of Asset)',min_value=0,value=1,step=1))
@@ -86,8 +87,10 @@ def basic_calculation():
 	equity = projectcost * equitycomp
 	debt = projectcost - equity
 	unitsgen = generation #
-
-	return solardiscount, projectcost, equity, debt, unitsgen
+	opening_balance = debt
+	repayment = debt/loanperiod
+	closing_balance = opening_balance - closing_balance
+	return solardiscount, projectcost, equity, debt, unitsgen, opening_balance, closing_balance
 
 projectcost =basic_calculation()[1]
 insurance_project = projectcost*insurance/1000
@@ -155,11 +158,16 @@ def xirr(values, dates):
 
 
 def year_calculation():
+	# calculation
+	projectcost =basic_calculation()[1]
 	unitsgen = basic_calculation()[4]
 	equity_invested = int(basic_calculation()[2])
 	firstyear = syscap * unitsgen
 	data2 =create_data()[2] # still a dict
 	df2 = pd.DataFrame(data2)
+	opening_balance= basic_calculation()[5]
+	closing_balance = basic_calculation()[6]
+	interest_expenses = ((opening_balance+closing_balance)/2 )*loanperiod
 	# st.write(ppayear)
 
 	# list initialisation
@@ -171,7 +179,7 @@ def year_calculation():
 	calcyear_df = {"Year 1":[firstyear]}
 	revenue_peryear = {}
 	omcharge_peryear = {}
-	capex_cashflow_peryear ={}
+	opex_cashflow_peryear ={}
 	equity_peryear = {}
 	date_years = {}
 	# IRR list
@@ -180,10 +188,15 @@ def year_calculation():
 	for year in range(1,ppayear+1):
 		# calculation part
 		consecutiveyear = round((calcyear[year-1] * (1-degradation)), 2) #units generated
-		unit = round(solartariff * calcyear[year-1], 2)
+		unit = round(solartariff * calcyear[year-1], 2) # revenue
 		omcharge_year = round(omcharge * unit, 2)
-		capex_cashflow = round(omcharge_year+insurance_project, 2) # fix name to opex
-		equity_peryear_calc = int(round(unit - capex_cashflow)) # revenue - opex - repayment
+		equity_peryear_calc = int(round(unit - opex_cashflow)) # revenue - opex - repayment
+		franchise_fee = unit * franchise_revenue + projectcost * franchise_asset
+		if year != capexrepyear:
+			opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit, 2) # fix name to opex
+		else:
+			capex = projectcost * capexrep
+			opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit + capex, 2)
 			# 	# year special condition
 		if len(date_years_list) == 1 and len(date_years)==0:
 			nextyear_dict = {"Year {}".format(year):[date_years_list[0]]}
@@ -200,28 +213,28 @@ def year_calculation():
 		value = {"Year {}".format(year):[calcyear[year-1]]}
 		rev = {"Year {}".format(year):[unit]}
 		omcharge_year_dict = {"Year {}".format(year):[omcharge_year]}
-		capex_cashflow_dict = {"Year {}".format(year):[capex_cashflow]}
+		opex_cashflow_dict = {"Year {}".format(year):[opex_cashflow]}
 		equity_peryear_dict = {"Year {}".format(year):[equity_peryear_calc]}
 
 		# dict update
 		calcyear_df.update(value)
 		revenue_peryear.update(rev)
 		omcharge_peryear.update(omcharge_year_dict)
-		capex_cashflow_peryear.update(capex_cashflow_dict)
+		opex_cashflow_peryear.update(opex_cashflow_dict)
 		equity_peryear.update(equity_peryear_dict)
 
 	# dataframe conversion
 	calcyear_df = pd.DataFrame(calcyear_df)
 	revenue_peryear=pd.DataFrame(revenue_peryear)
 	omcharge_peryear=pd.DataFrame(omcharge_peryear)
-	capex_cashflow_peryear=pd.DataFrame(capex_cashflow_peryear)
+	opex_cashflow_peryear=pd.DataFrame(opex_cashflow_peryear)
 	equity_peryear=pd.DataFrame(equity_peryear)
 	date_years=pd.DataFrame(date_years)
 	# appending into main dataframe (df2)
 	df2 = df2.append(calcyear_df, ignore_index = True) # unit generated per year
 	df2 = df2.append(revenue_peryear, ignore_index = True)
 	df2 = df2.append(omcharge_peryear, ignore_index = True)
-	df2 = df2.append(capex_cashflow_peryear, ignore_index = True)
+	df2 = df2.append(opex_cashflow_peryear, ignore_index = True)
 	df2 = df2.append(equity_peryear, ignore_index = True)
 	df2 = df2.append(date_years, ignore_index = True)
 	#
@@ -357,7 +370,7 @@ def run_data():
 btn1 = st.sidebar.checkbox("Show Values")
 btn = st.sidebar.button("Run Model")
 if btn1:
-	solardiscount, projectcost, equity, debt, unitsgen = basic_calculation()
+	solardiscount, projectcost, equity, debt, unitsgen, opening_balance, closing_balance = basic_calculation()
 	st.markdown(f" Solar Discount : **{int(solardiscount)}**")
 	st.markdown(f" Project Cost : **{projectcost}**")
 	st.markdown(f" Equity : **{equity}**")
