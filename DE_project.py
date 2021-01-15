@@ -198,6 +198,7 @@ def year_calculation():
 			capex = projectcost * capexrep
 			opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit + capex, 2)
 			# 	# year special condition
+			
 		if len(date_years_list) == 1 and len(date_years)==0:
 			nextyear_dict = {"Year {}".format(year):[date_years_list[0]]}
 			date_years.update(nextyear_dict)
