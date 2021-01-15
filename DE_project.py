@@ -367,7 +367,7 @@ if operation != 0:
     #            	line_color='darkslategray',
     #            	fill_color='lightcyan',
     #            	align='left'))])
-	st.write('babi')
+	
 	fig = go.Figure(data=[go.Table(
     header=dict(values=year_list,
                 line_color='darkslategray',
