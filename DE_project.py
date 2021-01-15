@@ -39,45 +39,45 @@ def run_status():
 st.sidebar.subheader('Initial Inputs')
 
 
-syscap= int(st.sidebar.number_input('System Capacity (kWp)',min_value=0,value=100,step=1 ))
+syscap= int(st.sidebar.number_input('System Capacity (kWp)',min_value=0,value=100,step=100 ))
 capexcost= int(st.sidebar.number_input('Capex Cost (INR/KWp)',min_value=0,value=10000,step=1))
-landcost= int(st.sidebar.number_input('Land Cost',min_value=0,value=1,step=1))
+landcost= int(st.sidebar.number_input('Land Cost',min_value=0,value=0,step=1))
 # ppa Period
 commisiondelay = int(st.sidebar.number_input('Commision Time (Months)',min_value=0,value=1,step=1))
-terminal_value_premium = (int(st.sidebar.number_input('Terminal Value Premium (%)',min_value=0,value=1,step=1)))/100 # in decimal, not percentage
+terminal_value_premium = (int(st.sidebar.number_input('Terminal Value Premium (%)',min_value=0,value=0,step=1)))/100 # in decimal, not percentage
 #
 st.sidebar.subheader(' ')
 degradation = (int(st.sidebar.number_input('Degradation (%)',min_value=0,value=1,step=1)))/100 # in decimal, not percentage
 st.sidebar.subheader(' ')
 #
-omcharge= int(st.sidebar.number_input('O&M Charges (%)',min_value=0,value=1,step=1))/100 # in decimal, not percentage
-franchise_revenue = int(st.sidebar.number_input('Franchise Fee (% from Revenue)',min_value=0,value=1,step=1))
-franchise_asset =int(st.sidebar.number_input('Franchise Fee (% from Asset)',min_value=0,value=1,step=1))
+omcharge= int(st.sidebar.number_input('O&M Charges (%)',min_value=0,value=10,step=2))/100 # in decimal, not percentage
+franchise_revenue = int(st.sidebar.number_input('Franchise Fee (% from Revenue)',min_value=0,value=0,step=1))
+franchise_asset =int(st.sidebar.number_input('Franchise Fee (% from Asset)',min_value=0,value=0,step=1))
 insurance = int(st.sidebar.number_input('Insurance Cost (Rs. Per 1000)',min_value=0,value=1,step=1))
-audit = int(st.sidebar.number_input('Audit Cost (Annual)',min_value=0,value=1,step=1))
-capexrep= int(st.sidebar.number_input('Capex Replacement (% of Asset)',min_value=0,value=1,step=1))
-capexrepyear= int(st.sidebar.number_input('Capex Replacement (year)',min_value=0,value=1,step=1))
+audit = int(st.sidebar.number_input('Audit Cost (Annual)',min_value=0,value=0,step=1))
+capexrep= int(st.sidebar.number_input('Capex Replacement (% of Asset)',min_value=0,value=0,step=1))
+capexrepyear= int(st.sidebar.number_input('Capex Replacement (year)',min_value=0,value=10,step=1))
 #
 st.sidebar.subheader(' ')
 #
-powertarrif= int(st.sidebar.number_input('Power Tariff',min_value=0.0,value=1.0,step=1.0))
-powertarrifincr=1 if st.sidebar.number_input('Power Tariff Increase (%/year)',min_value=0,value=1,step=1) else 0
+powertarrif= int(st.sidebar.number_input('Power Tariff',min_value=0.0,value=5.0,step=1.0))
+powertarrifincr= st.sidebar.number_input('Power Tariff Increase (%/year)',min_value=0,value=0,step=1)
 # solar discount (in basic_calculation)
 #
 st.sidebar.subheader(' ')
 #
-equitycomp= (int(st.sidebar.number_input('Equity Component (%)',min_value=0,value=1,step=1)))/100 # in decimal, not percentage
-loaninterest= (int(st.sidebar.number_input('Term Loan Interest (%)',min_value=0,value=1,step=1)))/100 #percentage
-loanperiod= int(st.sidebar.number_input('Loan Period (year)',min_value=0,value=1,step=1))
+equitycomp= (int(st.sidebar.number_input('Equity Component (%)',min_value=0,value=100,step=1)))/100 # in decimal, not percentage
+loaninterest= (int(st.sidebar.number_input('Term Loan Interest (%)',min_value=0,value=10,step=1)))/100 #percentage
+loanperiod= int(st.sidebar.number_input('Loan Period (year)',min_value=0,value=5,step=1))
 #
 st.sidebar.subheader(' ')
 # project cost (in basic_calculation)
-generation = st.sidebar.number_input('Generation',min_value=0.0,value=1.0,step=1.0)
-solartariff = st.sidebar.number_input('Solar Tariff',min_value=0.0,value=1.0,step=1.0)
+generation = st.sidebar.number_input('Generation',min_value=0.0,value=1500.0,step=1.0)
+solartariff = st.sidebar.number_input('Solar Tariff',min_value=0.0,value=5.0,step=1.0)
 # equity (in basic_calculation)
 # debt
 #  IRR
-operation = int(st.sidebar.number_input('Operational Time (year)',min_value=0,max_value=20,value=15,step=1))
+operation = int(st.sidebar.number_input('PPA year',min_value=0,max_value=20,value=15,step=1))
 startdate = st.sidebar.date_input('Start Date')
 
 
@@ -319,15 +319,20 @@ def exit_value():
 		x+= 1
 	return all_year_equity, string_list_years
 
+btn2 = st.sidebar.checkbox("PPA slider")
+
 # ppa year selectbox
 ppayear = 1
 if operation != 0:
 	# ppayear = st.selectbox('PPA Options',[*range(1,int(operation)+1)])
-	ppayear = st.sidebar.slider('PPA Options',min_value=1, max_value=int(operation),step=1)
+	if btn2:
+		ppayear = st.sidebar.slider('PPA Options',min_value=1, max_value=int(operation), value =int(operation) ,step=1)
+	else:
+		ppayear = int(operation)
 	create_data()
 	xirr_value, irr_list_equity, data, date_list = year_calculation()
 	st.dataframe(data,width=100000, height=100000)
-	st.table(data)
+	# st.table(data)
 	terminal_value_list=terminal_value()[0]
 	term_equity_temp_list=terminal_value()[1]
 	# xirr display
@@ -338,13 +343,37 @@ if operation != 0:
 	# st.write(terminal_value_list)
 	# st.write(term_equity_temp_list)
 	all_year_equity,year_list=exit_value()
+	#
+	btn1 = st.sidebar.checkbox("Show Values")
+	if btn1:
+		solardiscount, projectcost, equity, debt, unitsgen, opening_balance, closing_balance = basic_calculation()
+
+		st.markdown(f" Solar Discount : **{int(solardiscount)}**")
+		st.markdown(f" Project Cost : **{projectcost}**")
+		st.markdown(f" Equity : **{equity}**")
+		st.markdown(f" Debt : **{debt:.2f}**")
+		st.markdown(f" Unit Generated : **{unitsgen:.2f}**")
+	#
+	# step = 5
+	# i = 0
+	# for i in range(0,len(year_list)+1,5):
+	# 	if i-5 < 5 and :
+	# 	fig = go.Figure(data=[go.Table(
+    # 	header=dict(values=year_list[0:6],
+    #             	line_color='darkslategray',
+    #             	fill_color='lightskyblue',
+    #             	align='left'),
+    # 	cells=dict(values=all_year_equity[0:6], # 2nd column
+    #            	line_color='darkslategray',
+    #            	fill_color='lightcyan',
+    #            	align='left'))])
 
 	fig = go.Figure(data=[go.Table(
-    header=dict(values=year_list[0:6],
+    header=dict(values=year_list,
                 line_color='darkslategray',
                 fill_color='lightskyblue',
                 align='left'),
-    cells=dict(values=all_year_equity[0:6], # 2nd column
+    cells=dict(values=all_year_equity, # 2nd column
                line_color='darkslategray',
                fill_color='lightcyan',
                align='left'))])
@@ -370,17 +399,13 @@ def run_data():
 	df1=map_df(df)
 	st.map(df1)
 	df1
-btn1 = st.sidebar.checkbox("Show Values")
+
+
 btn = st.sidebar.button("Run Model")
 
-if btn1:
-	solardiscount, projectcost, equity, debt, unitsgen, opening_balance, closing_balance = basic_calculation()
 
-	st.markdown(f" Solar Discount : **{int(solardiscount)}**")
-	st.markdown(f" Project Cost : **{projectcost}**")
-	st.markdown(f" Equity : **{equity}**")
-	st.markdown(f" Debt : **{debt:.2f}**")
-	st.markdown(f" Unit Generated : **{unitsgen:.2f}**")
+
+
 
 if btn:
 	run_status()
