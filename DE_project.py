@@ -19,10 +19,10 @@ import scipy.optimize
 import plotly.graph_objects as go
 from datetime import date
 
-mean = 0.101018
-n_rows=6
-md_results = f"The mean is **{mean:.2f}** and there are **{n_rows:,}**.,|   |   | babi |   |   |,|---|---|------|---|---|,|   |   |      |   |   |"
-st.markdown(md_results)
+# mean = 0.101018
+# n_rows=6
+# md_results = f"The mean is **{mean:.2f}** and there are **{n_rows:,}**.,|   |   | babi |   |   |,|---|---|------|---|---|,|   |   |      |   |   |"
+# st.markdown(md_results)
 
 st.title('Financial Model')
 
@@ -289,7 +289,7 @@ def exit_value():
 	x = 0
 	for year in range(ppayear-1,0,-1): # decrements unti index 1
 		# find exit value
-		st.write(year)
+		# st.write(year)
 		# st.write(x)
 		# if len(all_year_equity) == 1:
 		# 	current_year_list_equity = irr_list_equity
