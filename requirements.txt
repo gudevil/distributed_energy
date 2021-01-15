@@ -32,3 +32,4 @@ streamlit==0.73.0
 toolz==0.11.1
 xirr==0.1.5
 yfinance==0.1.55
+matplotlib==3.3.3
