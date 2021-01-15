@@ -350,7 +350,7 @@ if operation != 0:
                align='left'))])
 	# fig.update_layout(width=10, height=1000)
 	st.plotly_chart(fig)
-	st.write('babi')
+
 else:
 	pass
 
