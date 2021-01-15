@@ -89,12 +89,13 @@ def basic_calculation():
 	unitsgen = generation #
 	opening_balance = debt
 	repayment = debt/loanperiod
-	closing_balance = opening_balance - closing_balance
+	closing_balance = opening_balance - repayment
 	return solardiscount, projectcost, equity, debt, unitsgen, opening_balance, closing_balance
 
 projectcost =basic_calculation()[1]
 insurance_project = projectcost*insurance/1000
 
+repayment = basic_calculation()[3]/loanperiod
 
 def create_data():
 	data=basic_calculation()
@@ -190,7 +191,6 @@ def year_calculation():
 		consecutiveyear = round((calcyear[year-1] * (1-degradation)), 2) #units generated
 		unit = round(solartariff * calcyear[year-1], 2) # revenue
 		omcharge_year = round(omcharge * unit, 2)
-		equity_peryear_calc = int(round(unit - opex_cashflow)) # revenue - opex - repayment
 		franchise_fee = unit * franchise_revenue + projectcost * franchise_asset
 		if year != capexrepyear:
 			opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit, 2) # fix name to opex
@@ -198,7 +198,8 @@ def year_calculation():
 			capex = projectcost * capexrep
 			opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit + capex, 2)
 			# 	# year special condition
-			
+
+		equity_peryear_calc = int(round(unit - opex_cashflow - repayment)) # revenue - opex - repayment
 		if len(date_years_list) == 1 and len(date_years)==0:
 			nextyear_dict = {"Year {}".format(year):[date_years_list[0]]}
 			date_years.update(nextyear_dict)
@@ -347,8 +348,9 @@ if operation != 0:
                line_color='darkslategray',
                fill_color='lightcyan',
                align='left'))])
-	fig.update_layout(width=10, height=10000)
-	st.plotly_chart(fig, use_container_width=True)
+	# fig.update_layout(width=10, height=1000)
+	st.plotly_chart(fig)
+	st.write('babi')
 else:
 	pass
 
@@ -370,8 +372,10 @@ def run_data():
 	df1
 btn1 = st.sidebar.checkbox("Show Values")
 btn = st.sidebar.button("Run Model")
+
 if btn1:
 	solardiscount, projectcost, equity, debt, unitsgen, opening_balance, closing_balance = basic_calculation()
+
 	st.markdown(f" Solar Discount : **{int(solardiscount)}**")
 	st.markdown(f" Project Cost : **{projectcost}**")
 	st.markdown(f" Equity : **{equity}**")
