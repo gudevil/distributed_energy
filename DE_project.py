@@ -399,8 +399,7 @@ if operation != 0:
 	# st.write(xirr_value)
 	st.markdown(f" IRR : **{xirr_value:.2f}**% (*{ppayear}* years PPA)")
 	#
-	# st.write(terminal_value_list)
-	# st.write(term_equity_temp_list)
+
 	all_year_equity,year_list=exit_value()
 	#
 	btn1 = st.sidebar.checkbox("Show Values")
