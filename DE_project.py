@@ -17,6 +17,9 @@ import datetime
 import calendar
 import scipy.optimize
 import plotly.graph_objects as go
+import base64
+# import openpyxl
+from io import BytesIO
 from datetime import date
 
 # mean = 0.101018
@@ -51,17 +54,18 @@ degradation = (int(st.sidebar.number_input('Degradation (%)',min_value=0,value=1
 st.sidebar.subheader(' ')
 #
 omcharge= int(st.sidebar.number_input('O&M Charges (%)',min_value=0,value=10,step=2))/100 # in decimal, not percentage
-franchise_revenue = int(st.sidebar.number_input('Franchise Fee (% from Revenue)',min_value=0,value=0,step=1))
-franchise_asset =int(st.sidebar.number_input('Franchise Fee (% from Asset)',min_value=0,value=0,step=1))
+franchise_revenue = int(st.sidebar.number_input('Franchise Fee (% from Revenue)',min_value=0,value=0,step=1))/100
+franchise_asset =int(st.sidebar.number_input('Franchise Fee (% from Asset)',min_value=0,value=0,step=1))/100
 insurance = int(st.sidebar.number_input('Insurance Cost (Rs. Per 1000)',min_value=0,value=1,step=1))
 audit = int(st.sidebar.number_input('Audit Cost (Annual)',min_value=0,value=0,step=1))
-capexrep= int(st.sidebar.number_input('Capex Replacement (% of Asset)',min_value=0,value=0,step=1))
+capexrep= int(st.sidebar.number_input('Capex Replacement (% of Asset)',min_value=0,value=0,step=1))/100
+
 capexrepyear= int(st.sidebar.number_input('Capex Replacement (year)',min_value=0,value=10,step=1))
 #
 st.sidebar.subheader(' ')
 #
 powertarrif= int(st.sidebar.number_input('Power Tariff',min_value=0.0,value=5.0,step=1.0))
-powertarrifincr= st.sidebar.number_input('Power Tariff Increase (%/year)',min_value=0,value=0,step=1)
+powertarrifincr= st.sidebar.number_input('Power Tariff Increase (%/year)',min_value=0,value=0,step=1)/100
 # solar discount (in basic_calculation)
 #
 st.sidebar.subheader(' ')
@@ -87,10 +91,8 @@ def basic_calculation():
 	equity = projectcost * equitycomp
 	debt = projectcost - equity
 	unitsgen = generation #
-	opening_balance = debt
-	repayment = debt/loanperiod
-	closing_balance = opening_balance - repayment
-	return solardiscount, projectcost, equity, debt, unitsgen, opening_balance, closing_balance
+
+	return solardiscount, projectcost, equity, debt, unitsgen
 
 projectcost =basic_calculation()[1]
 insurance_project = projectcost*insurance/1000
@@ -157,19 +159,52 @@ def xirr(values, dates):
 	except RuntimeError:    # Failed to converge?
 		return scipy.optimize.brentq(lambda r: xnpv(r, values, dates), -1.0, 1e10)
 
+def to_excel(df):
+    output = BytesIO()
+    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    df.to_excel(writer, sheet_name='Sheet1')
+    writer.save()
+    processed_data = output.getvalue()
+    return processed_data
+
+def get_table_download_link(df,string):
+    """Generates a link allowing the data in a given panda dataframe to be downloaded
+    in:  dataframe
+    out: href string
+    """
+    val = to_excel(df)
+    b64 = base64.b64encode(val)  # val looks like b'...'
+    return f'<a href="data:application/octet-stream;base64,{b64.decode()}" download="{string}.xlsx">Download {string} Excel file</a>' # decode b'abc' => ab
+
 
 def year_calculation():
 	# calculation
 	projectcost =basic_calculation()[1]
 	unitsgen = basic_calculation()[4]
+	debt = basic_calculation()[3]
 	equity_invested = int(basic_calculation()[2])
 	firstyear = syscap * unitsgen
 	data2 =create_data()[2] # still a dict
 	df2 = pd.DataFrame(data2)
-	opening_balance= basic_calculation()[5]
-	closing_balance = basic_calculation()[6]
-	interest_expenses = ((opening_balance+closing_balance)/2 )*loanperiod
-	# st.write(ppayear)
+	# opening_balance= basic_calculation()[5]
+	# closing_balance = basic_calculation()[6]
+	opening_balance = [debt]
+	repayment = debt/loanperiod
+	closing_balance = []
+	for period in range(0,ppayear):
+		if period <= loanperiod:
+			new_closing_balance = opening_balance[period] - repayment
+			# st.write(new_closing_balance)
+			if period < loanperiod:
+				opening_balance.append(new_closing_balance)
+				closing_balance.append(new_closing_balance)
+		else:
+			closing_balance.append(0)
+			opening_balance.append(0)
+	closing_balance.append(0)
+	# st.write(closing_balance)
+	# st.write(opening_balance)
+
 
 	# list initialisation
 	calcyear = [firstyear] #units generated
@@ -188,15 +223,32 @@ def year_calculation():
 	irr_list_equity = [-equity_invested] # values
 	for year in range(1,ppayear+1):
 		# calculation part
+		interest_expenses = ((opening_balance[year-1]+closing_balance[year-1])/2 )*loaninterest
+		# st.write(interest_expenses)
 		consecutiveyear = round((calcyear[year-1] * (1-degradation)), 2) #units generated
 		unit = round(solartariff * calcyear[year-1], 2) # revenue
 		omcharge_year = round(omcharge * unit, 2)
-		franchise_fee = unit * franchise_revenue + projectcost * franchise_asset
+		franchise_fee_rev = unit * franchise_revenue
+		franchise_fee_ass = projectcost * franchise_asset
 		if year != capexrepyear:
-			opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit, 2) # fix name to opex
-		else:
+			if franchise_asset != 0 and year == 1:
+					if franchise_revenue != 0:
+						opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit + franchise_fee_ass + franchise_fee_rev, 2)
+					else:
+						opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit + franchise_fee_ass, 2)
+			elif franchise_revenue != 0:
+				opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit + franchise_fee_rev, 2) # fix name to opex
+			else:
+				opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit, 2)
+		elif year == capexrepyear:
 			capex = projectcost * capexrep
-			opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit + capex, 2)
+			if year == 1:
+				st.write("Capex Replacement Year Must Be Above The First Year")
+			elif franchise_revenue != 0:
+				opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit + franchise_fee_rev + capex, 2)
+			else:
+				opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit + capex, 2)
+
 			# 	# year special condition
 
 		equity_peryear_calc = int(round(unit - opex_cashflow - repayment)) # revenue - opex - repayment
@@ -242,9 +294,13 @@ def year_calculation():
 	#
 	df2 = df2.rename(index={0:'Units Generated',1:'Revenue',2:'O&M Charges',3:'Opex Cashflow',4:'Equity'})
 	#
+	# st.write(repayment)
+	# st.write(revenue_peryear)
+	# st.write(opex_cashflow_peryear)
 	# xirr calculation
 	irr_list_date = irr_list_date + date_years_list
 	irr_list_equity = irr_list_equity + equity_peryear_list
+	# st.write(irr_list_equity)
 	xirr_value = round(xirr(irr_list_equity, irr_list_date),4)
 	xirr_value = xirr(irr_list_equity, irr_list_date)
 	# st.write(float(xirr(irr_list_equity, irr_list_date))*100)
@@ -332,6 +388,9 @@ if operation != 0:
 	create_data()
 	xirr_value, irr_list_equity, data, date_list = year_calculation()
 	st.dataframe(data,width=100000, height=100000)
+	#
+	st.markdown(get_table_download_link(data, "Test"), unsafe_allow_html=True)
+	#
 	# st.table(data)
 	terminal_value_list=terminal_value()[0]
 	term_equity_temp_list=terminal_value()[1]
@@ -367,7 +426,7 @@ if operation != 0:
     #            	line_color='darkslategray',
     #            	fill_color='lightcyan',
     #            	align='left'))])
-	
+
 	fig = go.Figure(data=[go.Table(
     header=dict(values=year_list,
                 line_color='darkslategray',
@@ -402,8 +461,6 @@ def run_data():
 
 
 btn = st.sidebar.button("Run Model")
-
-
 
 
 
