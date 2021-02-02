@@ -42,30 +42,30 @@ def run_status():
 st.sidebar.subheader('Initial Inputs')
 
 
-syscap= int(st.sidebar.number_input('System Capacity (kWp)',min_value=0,value=100,step=100 ))
-capexcost= int(st.sidebar.number_input('Capex Cost (INR/KWp)',min_value=0,value=10000,step=1))
+syscap= int(st.sidebar.number_input('System Capacity (kWp)',min_value=0,value=200,step=100 ))
+capexcost= int(st.sidebar.number_input('Capex Cost (INR/KWp)',min_value=0,value=35000,step=1))
 landcost= int(st.sidebar.number_input('Land Cost',min_value=0,value=0,step=1))
 operation = int(st.sidebar.number_input('PPA year',min_value=0,max_value=20,value=15,step=1))
 # ppa Period
-commisiondelay = int(st.sidebar.number_input('Commision Time (Months)',min_value=0,value=1,step=1))
+commisiondelay = int(st.sidebar.number_input('Commision Time (Months)',min_value=0,value=2,step=1))
 terminal_value_premium = (int(st.sidebar.number_input('Terminal Value Premium (%)',min_value=0,value=0,step=1)))/100 # in decimal, not percentage
 #
 st.sidebar.subheader(' ')
 degradation = (int(st.sidebar.number_input('Degradation (%)',min_value=0,value=1,step=1)))/100 # in decimal, not percentage
 st.sidebar.subheader(' ')
 #
-omcharge= int(st.sidebar.number_input('O&M Charges (%)',min_value=0,value=10,step=2))/100 # in decimal, not percentage
+omcharge= int(st.sidebar.number_input('O&M Charges (%)',min_value=0,value=20,step=2))/100 # in decimal, not percentage
 franchise_revenue = int(st.sidebar.number_input('Franchise Fee (% from Revenue)',min_value=0,value=0,step=1))/100
 franchise_asset =int(st.sidebar.number_input('Franchise Fee (% from Asset)',min_value=0,value=0,step=1))/100
 insurance = int(st.sidebar.number_input('Insurance Cost (Rs. Per 1000)',min_value=0,value=1,step=1))
 audit = int(st.sidebar.number_input('Audit Cost (Annual)',min_value=0,value=0,step=1))
-capexrep= int(st.sidebar.number_input('Capex Replacement (% of Asset)',min_value=0,value=0,step=1))/100
+capexrep= int(st.sidebar.number_input('Capex Replacement (% of Asset)',min_value=0,value=10,step=1))/100
 
 capexrepyear= int(st.sidebar.number_input('Capex Replacement (year)',min_value=2,value=10,step=1))
 #
 st.sidebar.subheader(' ')
 #
-powertarrif= int(st.sidebar.number_input('Power Tariff',min_value=0.0,value=5.0,step=1.0))
+powertarrif= st.sidebar.number_input('Power Tariff',min_value=0.0,value=6.35,step=1.0) #%d %e %f %g %i %u
 powertarrifincr= st.sidebar.number_input('Power Tariff Increase (%/year)',min_value=0,value=0,step=1)/100
 # solar discount (in basic_calculation)
 #
@@ -73,12 +73,12 @@ st.sidebar.subheader(' ')
 #
 equitycomp= (int(st.sidebar.number_input('Equity Component (%)',min_value=0,value=100,step=1)))/100 # in decimal, not percentage
 loaninterest= (int(st.sidebar.number_input('Term Loan Interest (%)',min_value=0,value=10,step=1)))/100 #percentage
-loanperiod= int(st.sidebar.number_input('Loan Period (year)',min_value=0,value=5,step=1))
+loanperiod= int(st.sidebar.number_input('Loan Period (year)',min_value=0,value=7,step=1))
 #
 st.sidebar.subheader(' ')
 # project cost (in basic_calculation)
 generation = st.sidebar.number_input('Generation',min_value=0.0,value=1500.0,step=1.0)
-solartariff = st.sidebar.number_input('Solar Tariff',min_value=0.0,value=5.0,step=1.0)
+solartariff = st.sidebar.number_input('Solar Tariff',min_value=0.0,value=5.25,step=1.0)
 # equity (in basic_calculation)
 # debt
 #  IRR
@@ -87,28 +87,30 @@ startdate = st.sidebar.date_input('Start Date')
 input_list = [syscap
 ,capexcost
 ,landcost
+,operation
 ,commisiondelay
-,terminal_value_premium
-,degradation
-,omcharge
-,franchise_revenue
-,franchise_asset
+,(terminal_value_premium*100)
+,(degradation*100)
+,(omcharge*100)
+,(franchise_revenue*100)
+,(franchise_asset*100)
 ,insurance
 ,audit
-,capexrep
+,(capexrep*100)
 ,capexrepyear
 ,powertarrif
-,powertarrifincr
-,equitycomp
-,loaninterest
+,(powertarrifincr*100)
+,(equitycomp*100)
+,(loaninterest*100)
 ,loanperiod
 ,generation
 ,solartariff
-,operation]
+]
 #
 input_string_list = ['System Capacity (kWp)',
 'Capex Cost (INR/KWp)',
 'Land Cost',
+'PPA year',
 'Commision Time (Months)',
 'Terminal Value Premium (%)',
 'Degradation (%)',
@@ -125,8 +127,8 @@ input_string_list = ['System Capacity (kWp)',
 'Term Loan Interest (%)',
 'Loan Period (year)',
 'Generation',
-'Solar Tariff',
-'PPA year']
+'Solar Tariff'
+]
 # st.write(input_list)
 
 def basic_calculation():
@@ -285,6 +287,7 @@ def year_calculation():
 		else:
 			closing_balance.append(0)
 			opening_balance.append(0)
+
 	closing_balance.append(0)
 
 
@@ -359,8 +362,12 @@ def year_calculation():
 				opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit + capex, 2)
 
 			# 	# year special condition
-
-		equity_peryear_calc = int(round(unit - opex_cashflow - repayment)) # revenue - opex - repayment
+		if year <= loanperiod:
+			equity_peryear_calc = int(round(unit - opex_cashflow - repayment)) # revenue - opex - repayment
+			repayment_peryear.update({"Year {}".format(year):[round(repayment)]})
+		else:
+			equity_peryear_calc = int(round(unit - opex_cashflow))
+			repayment_peryear.update({"Year {}".format(year):[0]})
 		if len(date_years_list) == 1 and len(date_years)==0:
 			nextyear_dict = {"Year {}".format(year):[date_years_list[0].strftime('%m/%d/%Y')]}
 			date_years.update(nextyear_dict)
@@ -377,16 +384,15 @@ def year_calculation():
 		# in the conditional above # solar Tariff
 		#
 		# term loan - 1. opening_balance 2. repayment 3. closing closing_balance
-		opening_balance_peryear.update({"Year {}".format(year):[opening_balance[year-1]]})
-		repayment_peryear.update({"Year {}".format(year):[repayment]})
-		closing_balance_peryear.update({"Year {}".format(year):[closing_balance[year-1]]})
-		rev = {"Year {}".format(year):[unit]}
+		opening_balance_peryear.update({"Year {}".format(year):[round(opening_balance[year-1])]})
+
+		closing_balance_peryear.update({"Year {}".format(year):[round(closing_balance[year-1])]})
 		#
-		opex_cashflow_dict = {"Year {}".format(year):[opex_cashflow]}
-		omcharge_year_dict = {"Year {}".format(year):[omcharge_year]}
+		opex_cashflow_dict = {"Year {}".format(year):[round(opex_cashflow)]}
+		omcharge_year_dict = {"Year {}".format(year):[round(omcharge_year)]}
 		# interest_expenses, franchise_fee , insurance, audit , terminal_value of land (not needed), capex(at specific year)
-		interest_expenses_peryear.update({"Year {}".format(year):[interest_expenses]})
-		franchise_fee_peryear.update({"Year {}".format(year):[franchise_fee]})
+		interest_expenses_peryear.update({"Year {}".format(year):[round(interest_expenses)]})
+		franchise_fee_peryear.update({"Year {}".format(year):[round(franchise_fee)]})
 		insurance_peryear.update({"Year {}".format(year):[insurance_project]})
 		audit_peryear.update({"Year {}".format(year):[audit]})
 		capex_peryear.update({"Year {}".format(year):[capex]})
@@ -394,7 +400,7 @@ def year_calculation():
 		equity_peryear_dict = {"Year {}".format(year):[equity_peryear_calc]} # capex cashflow (same as equity) , xirr
 		# dict update
 		calcyear_df.update(value)
-		revenue_peryear.update(rev)
+		revenue_peryear.update({"Year {}".format(year):[round(unit)]})
 		omcharge_peryear.update(omcharge_year_dict)
 		opex_cashflow_peryear.update(opex_cashflow_dict)
 		equity_peryear.update(equity_peryear_dict)
@@ -435,7 +441,8 @@ def year_calculation():
 	{0:'Units Generated',1:'Solar Tariff',2:'Opening Balance',3:'Repayment',
 	4:'Closing Balance',5:'Revenue',6:'O&M Charges'
 	,7:'Interest Expenses',8:'Franchise Fee',9:'Insurance',10:'Account & Audit'
-	,11:'Capex', 12:'Opex Cashflow',13:'Equity',14:'Dates'})
+	,11:'Capex', 12:'Opex Cashflow',13:'Equity/Capex Cashflow',14:'Dates',
+	15:' ',16:'Terminal Value'})
 	#
 	# st.write(repayment)
 	# st.write(revenue_peryear)
@@ -448,28 +455,40 @@ def year_calculation():
 	xirr_value = xirr(irr_list_equity, irr_list_date)
 	# st.write(solartariff_list)
 	#
-	return xirr_value, irr_list_equity,df2, irr_list_date # return xirr_value, irr_list_equity, df2, date_years_list
+	return xirr_value, irr_list_equity,df2, irr_list_date, closing_balance # return xirr_value, irr_list_equity, df2, date_years_list
 
 def terminal_value(): # return terminal_value_list, term_equity_temp_list
 	term_xirr_value = year_calculation()[0] # in decimal, not %
 	equity_list = year_calculation()[1]
-	# st.write(term_xirr_value)
+	closing_balance = year_calculation()[4] # list of closing balance
+
 	term_equity_temp_first = equity_list[0]*term_xirr_value + equity_list[1]
-	term_equity_temp_list = [term_equity_temp_first]
+	term_equity_temp_list = [round(term_equity_temp_first)]
 	terminal_value_list = []
-	for year in range(0,ppayear-1): # if ppayear is 15, range is until 14 (index:15)
+	temp_terminal_value_list = []
+	for year in range(0,ppayear): # if ppayear is 15, range is until 14 (index:15)
 		if year == 0:
 			# first year
-			terminal_value_first = - equity_list[0]-(term_equity_temp_list[0] * (1-terminal_value_premium*year/ppayear))
-			terminal_value_list.append(terminal_value_first)
+			terminal_value_first = - equity_list[0]-(term_equity_temp_list[0] * (1-terminal_value_premium*(year+1)/ppayear))
+			temp_terminal_value_list.append(terminal_value_first)
+			#
+			terminal_value_first = terminal_value_first + closing_balance[0]*1.02
+			terminal_value_list.append(round(terminal_value_first))
 		else:
 			# second year and above
 			# temporary equity
-			term_equity_temp = - terminal_value_list[year-1] * term_xirr_value + equity_list[year+1]
-			term_equity_temp_list.append(term_equity_temp)
+			term_equity_temp = - temp_terminal_value_list[year-1] * term_xirr_value + equity_list[year+1]
+			term_equity_temp_list.append(round(term_equity_temp))
 			# terminal value calculation
-			terminal_value_years = terminal_value_list[year-1] - term_equity_temp * (1-terminal_value_premium* (year+1)/ppayear)
-			terminal_value_list.append(terminal_value_years)
+			if year != ppayear-1:
+				terminal_value_years = temp_terminal_value_list[year-1] - term_equity_temp * (1-terminal_value_premium* (year+1)/ppayear)
+				temp_terminal_value_list.append(terminal_value_years)
+				#
+				terminal_value_years = terminal_value_years + closing_balance[year]*1.02
+				terminal_value_list.append(round(terminal_value_years))
+			else:
+				temp_terminal_value_list.append(0)
+				terminal_value_list.append(0)
 
 	return terminal_value_list, term_equity_temp_list
 
@@ -500,7 +519,7 @@ def exit_value():
 		exit_perkw = exit/syscap
 		# new equity list
 		current_year_list_equity[year+1] = "	"
-		current_year_list_equity[year] = current_year_list_equity[year]+exit
+		current_year_list_equity[year] = current_year_list_equity[year]+round(exit)
 		new_equity = current_year_list_equity
 
 		# new date for xirr calculation
@@ -526,15 +545,18 @@ def exit_value():
 
 btn2 = st.sidebar.checkbox("PPA slider")
 
-templist = list(basic_calculation())
-df_input = create_df_input(templist, ['Solar Discount', 'Project Cost', 'Equity', 'Debt', 'Unit Generated'])
-st.dataframe(df_input ,width=100000, height=100000)
-st.markdown(get_table_download_link(df_input, "Test",bool=True), unsafe_allow_html=True)
+btn3 = st.sidebar.checkbox("Show Individual Download Link")
 
 # ppa year selectbox
 ppayear = 1
 if operation != 0:
 	# chnage this to df into new sheet
+	templist = list(basic_calculation())
+	templist[0] = templist[0]*100
+	df_input = create_df_input(templist, ['Solar Discount', 'Project Cost', 'Equity', 'Debt', 'Unit Generated'])
+	st.dataframe(df_input ,width=100000, height=100000)
+	if btn3:
+		st.markdown(get_table_download_link(df_input, "Sheet 1",bool=True), unsafe_allow_html=True)
 	solardiscount, projectcost, equity, debt, unitsgen = basic_calculation()
 	new_list = [solardiscount,projectcost,equity,debt]
 	new_list_string = ['Solar Discount','Project Cost','Equity','Debt']
@@ -546,60 +568,64 @@ if operation != 0:
 	else:
 		ppayear = int(operation)
 	create_data()
-	xirr_value, irr_list_equity, df_2, date_list = year_calculation()
+	#
+	dict_terminal_value = {}
+	dict_equity_temp = {}
+	year_list = exit_value()[1]
+	terminal_value_list, term_equity_temp_list=terminal_value()
+	# st.write(terminal_value_list)
+	for year in range(ppayear):
+		dict_terminal_value.update({year_list[ppayear-1-year]:[terminal_value_list[year]]})
+		dict_equity_temp.update({year_list[ppayear-1-year]:[term_equity_temp_list[year]]})
+
+	# st.write(dict_terminal_value)
+	dict_terminal_value = pd.DataFrame(dict_terminal_value)
+	dict_equity_temp = pd.DataFrame(dict_equity_temp)
+	#
+	xirr_value, irr_list_equity, df_2, date_list, closing_balance = year_calculation()
+	df_2 = df_2.append(dict_equity_temp, ignore_index = True)
+	df_2 = df_2.append(dict_terminal_value, ignore_index = True)
+	df_2 = df_2.rename(index=
+	{0:'Units Generated',1:'Solar Tariff',2:'Opening Balance',3:'Repayment',
+	4:'Closing Balance',5:'Revenue',6:'O&M Charges'
+	,7:'Interest Expenses',8:'Franchise Fee',9:'Insurance',10:'Account & Audit'
+	,11:'Capex', 12:'Opex Cashflow',13:'Equity/Capex Cashflow',14:'Dates',
+	15:' ',16:'Terminal Value'})
 	st.dataframe(df_2,width=100000, height=100000)
 	#
-	st.markdown(get_table_download_link(df_2, "Test",bool=True), unsafe_allow_html=True)
+	if btn3:
+		st.markdown(get_table_download_link(df_2, "Sheet2",bool=True), unsafe_allow_html=True)
 	#
-	terminal_value_list=terminal_value()[0]
-	term_equity_temp_list=terminal_value()[1]
 	# xirr display
 	xirr_value = xirr_value*100
 	# st.write(xirr_value)
 	st.markdown(f" IRR : **{xirr_value:.2f}**% (*{ppayear}* years PPA)")
 	#
+	# btn1 = st.sidebar.checkbox("Show Values")
+	# if btn1:
+	# solardiscount, projectcost, equity, debt, unitsgen, opening_balance, closing_balance = basic_calculation()
 
-	all_year_equity,year_list, xirr_list, exit_value_list, exit_perkw_list=exit_value()
-	#
-	btn1 = st.sidebar.checkbox("Show Values")
-	if btn1:
-		solardiscount, projectcost, equity, debt, unitsgen, opening_balance, closing_balance = basic_calculation()
-
-		st.markdown(f" Solar Discount : **{int(solardiscount)}**")
-		st.markdown(f" Project Cost : **{projectcost}**")
-		st.markdown(f" Equity : **{equity}**")
-		st.markdown(f" Debt : **{debt:.2f}**")
-		st.markdown(f" Unit Generated : **{unitsgen:.2f}**")
-	#
-	dict_terminal_value = {}
+	all_year_equity,year_list, xirr_list, exit_value_list, exit_perkw_list = exit_value()
+	dict_exit_value = {}
 	irr_list_date_terminal = year_calculation()[3].copy()
 	irr_list_date_terminal[0] = irr_list_date_terminal[0].strftime('%m/%d/%Y')
 	for i in range(ppayear):
 		all_year_equity[i].append(exit_value_list[i])
 		all_year_equity[i].append(exit_perkw_list[i])
-		all_year_equity[i].append(xirr_list[i])
-		dict_terminal_value.update({year_list[i]:all_year_equity[i]})
+		all_year_equity[i].append(round(xirr_list[i]*100,3))
+		dict_exit_value.update({year_list[i]:all_year_equity[i]})
 		irr_list_date_terminal[i+1] = irr_list_date_terminal[i+1].strftime('%m/%d/%Y')
 	irr_list_date_terminal= irr_list_date_terminal.copy()+['Exit Value','Exit Value per kW','IRR each Year']
 
-	df_terminal_val = pd.DataFrame(dict_terminal_value, index=irr_list_date_terminal)
+	df_terminal_val = pd.DataFrame(dict_exit_value, index=irr_list_date_terminal)
 	st.dataframe(df_terminal_val,width=100000, height=100000)
+	if btn3:
+		st.markdown(get_table_download_link(df_terminal_val, "Sheet3",bool=True), unsafe_allow_html=True)
+	#
 	# for excel export for all DataFrame
 	df_master_list = [df_input, df_2 ,df_terminal_val]
 	df_master_bool = [True, True, True]
 	st.markdown(get_table_download_link(df_master_list, "Full_Ouput",df_master_bool), unsafe_allow_html=True)
-
-	# fig = go.Figure(data=[go.Table(
-	# header=dict(values=year_list,
-	#             line_color='darkslategray',
-	#             fill_color='lightskyblue',
-	#             align='left'),
-	# cells=dict(values=all_year_equity , # 2nd column
-	#            line_color='darkslategray',
-	#            fill_color='lightcyan',
-	#            align='left'))])
-	# # fig.update_layout(width=10, height=1000)
-	# st.plotly_chart(fig)
 
 else:
 	pass
@@ -619,14 +645,14 @@ def run_data():
 	df1
 
 
-btn = st.sidebar.button("Run Model")
-
-
-
-if btn:
-	run_status()
-	# basic_calculation()
-	# create_data()
-	# display_result()
-else:
-	pass
+# btn = st.sidebar.button("Run Model")
+#
+#
+#
+# if btn:
+# 	run_status()
+# 	# basic_calculation()
+# 	# create_data()
+# 	# display_result()
+# else:
+# 	pass
