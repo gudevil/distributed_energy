@@ -14,6 +14,7 @@ import time
 import requests
 import json
 import datetime
+from datetime import date
 import calendar
 import scipy.optimize
 import plotly.graph_objects as go
@@ -45,7 +46,7 @@ st.sidebar.subheader('Initial Inputs')
 syscap= int(st.sidebar.number_input('System Capacity (kWp)',min_value=0,value=200,step=100 ))
 capexcost= int(st.sidebar.number_input('Capex Cost (INR/KWp)',min_value=0,value=35000,step=1))
 landcost= int(st.sidebar.number_input('Land Cost',min_value=0,value=0,step=1))
-operation = int(st.sidebar.number_input('PPA year',min_value=0,max_value=20,value=15,step=1))
+operation = int(st.sidebar.number_input('PPA year',min_value=0,max_value=25,value=15,step=1))
 # ppa Period
 commisiondelay = int(st.sidebar.number_input('Commision Time (Months)',min_value=0,value=2,step=1))
 terminal_value_premium = (int(st.sidebar.number_input('Terminal Value Premium (%)',min_value=0,value=0,step=1)))/100 # in decimal, not percentage
@@ -82,7 +83,7 @@ solartariff = st.sidebar.number_input('Solar Tariff',min_value=0.0,value=5.25,st
 # equity (in basic_calculation)
 # debt
 #  IRR
-startdate = st.sidebar.date_input('Start Date')
+startdate = st.sidebar.date_input('Start Date', value = date(2000, 1, 1))
 
 input_list = [syscap
 ,capexcost
@@ -297,6 +298,8 @@ def year_calculation():
 	startyear=add_month(startdate,commisiondelay) # date from input + commision time
 	date_years_list = [startyear]
 	solartariff_list = [solartariff]
+	repayment_list = []
+	interest_expenses_list = []
 	# dict initialisation
 	calcyear_df = {"Year 1":[firstyear]}
 	solartariff_peryear = {}
@@ -330,7 +333,7 @@ def year_calculation():
 			# solartariff_list.append(round(solartariff_new, 3))
 			unit = round(solartariff_list[year-1] * calcyear[year-1], 2)
 
-		# st.write(interest_expenses)
+		#
 		consecutiveyear = round((calcyear[year-1] * (1-degradation)), 2) #units generated
 
 		omcharge_year = round(omcharge * unit, 2)
@@ -363,10 +366,12 @@ def year_calculation():
 
 			# 	# year special condition
 		if year <= loanperiod:
-			equity_peryear_calc = int(round(unit - opex_cashflow - repayment)) # revenue - opex - repayment
+			equity_peryear_calc = (unit - opex_cashflow - repayment)# revenue - opex - repayment
+			repayment_list.append(repayment)
 			repayment_peryear.update({"Year {}".format(year):[round(repayment)]})
 		else:
-			equity_peryear_calc = int(round(unit - opex_cashflow))
+			equity_peryear_calc = unit - opex_cashflow
+			repayment_list.append(0)
 			repayment_peryear.update({"Year {}".format(year):[0]})
 		if len(date_years_list) == 1 and len(date_years)==0:
 			nextyear_dict = {"Year {}".format(year):[date_years_list[0].strftime('%m/%d/%Y')]}
@@ -378,7 +383,7 @@ def year_calculation():
 			date_years.update(nextyear_dict)
 		# list appending
 		calcyear.append(consecutiveyear)
-		equity_peryear_list.append(int(equity_peryear_calc))
+		equity_peryear_list.append(round(equity_peryear_calc))
 		# dict value
 		value = {"Year {}".format(year):[calcyear[year-1]]} # units generated
 		# in the conditional above # solar Tariff
@@ -391,13 +396,14 @@ def year_calculation():
 		opex_cashflow_dict = {"Year {}".format(year):[round(opex_cashflow)]}
 		omcharge_year_dict = {"Year {}".format(year):[round(omcharge_year)]}
 		# interest_expenses, franchise_fee , insurance, audit , terminal_value of land (not needed), capex(at specific year)
+		interest_expenses_list.append(interest_expenses)
 		interest_expenses_peryear.update({"Year {}".format(year):[round(interest_expenses)]})
 		franchise_fee_peryear.update({"Year {}".format(year):[round(franchise_fee)]})
 		insurance_peryear.update({"Year {}".format(year):[insurance_project]})
 		audit_peryear.update({"Year {}".format(year):[audit]})
 		capex_peryear.update({"Year {}".format(year):[capex]})
 		#
-		equity_peryear_dict = {"Year {}".format(year):[equity_peryear_calc]} # capex cashflow (same as equity) , xirr
+		equity_peryear_dict = {"Year {}".format(year):[round(equity_peryear_calc)]} # capex cashflow (same as equity) , xirr
 		# dict update
 		calcyear_df.update(value)
 		revenue_peryear.update({"Year {}".format(year):[round(unit)]})
@@ -455,7 +461,7 @@ def year_calculation():
 	xirr_value = xirr(irr_list_equity, irr_list_date)
 	# st.write(solartariff_list)
 	#
-	return xirr_value, irr_list_equity,df2, irr_list_date, closing_balance # return xirr_value, irr_list_equity, df2, date_years_list
+	return xirr_value, irr_list_equity,df2, irr_list_date, closing_balance, interest_expenses_list, repayment_list # return xirr_value, irr_list_equity, df2, date_years_list
 
 def terminal_value(): # return terminal_value_list, term_equity_temp_list
 	term_xirr_value = year_calculation()[0] # in decimal, not %
@@ -496,6 +502,8 @@ def exit_value():
 	# last year
 	irr_list_equity = year_calculation()[1] # last year
 	irr_list_date = year_calculation()[3].copy()
+	repayment_list = year_calculation()[6].copy()
+	interest_expenses_list = year_calculation()[5].copy()
 	# list initialisation
 	all_year_equity = [irr_list_equity] # list of lists for all years
 	# all_year_date
@@ -505,41 +513,36 @@ def exit_value():
 	string_list_years = ["Year {}".format(ppayear)]
 	#
 	x = 0
+	total_payment = repayment_list[ppayear-1] + interest_expenses_list[ppayear-1]
 	for year in range(ppayear-1,0,-1): # decrements unti index 1
-		# find exit value
-		# st.write(year)
-		# st.write(x)
-		# if len(all_year_equity) == 1:
-		# 	current_year_list_equity = irr_list_equity
-		# else:
+		# special case for debt
+		total_payment += repayment_list[year-1] + interest_expenses_list[year-1]
+		#
 		current_year_list_equity = all_year_equity[x].copy()
-		# st.write(current_year_list_equity)
-		exit = current_year_list_equity[year+1]/(1/1+xirr_list[x]) # ask for feedback due to odd formula
+		exit = current_year_list_equity[year+1]/(1/1+xirr_list[x])  # ask for feedback due to odd formula
+		exit_temp = exit + total_payment
 		# exit per kW
 		exit_perkw = exit/syscap
 		# new equity list
 		current_year_list_equity[year+1] = "	"
 		current_year_list_equity[year] = current_year_list_equity[year]+round(exit)
 		new_equity = current_year_list_equity
-
 		# new date for xirr calculation
 		del irr_list_date[year+1]
 		# new xirr
-
 		new_xirr = xirr(new_equity, irr_list_date)
 		xirr_list.append(new_xirr)
 		# st.write("Year {}".format(year))
+		# st.write(total_payment)
 		# st.write(exit)
-		# st.write(exit_perkw)
 		# list update
-		exit_value_list.append(round(exit))
+		exit_value_list.append(round(exit_temp))
 		exit_perkw_list.append(round(exit_perkw))
 		all_year_equity.append(new_equity)
-		# st.write(all_year_equity)
 		string_list_years.append("Year {}".format(year))
 		# find cummulutive equity due to exit
 		x+= 1
-	# st.write(exit_value_list)
+	# st.write(xirr_list)
 	# st.write(exit_perkw_list)
 	return all_year_equity, string_list_years, xirr_list, exit_value_list, exit_perkw_list
 
@@ -582,7 +585,9 @@ if operation != 0:
 	dict_terminal_value = pd.DataFrame(dict_terminal_value)
 	dict_equity_temp = pd.DataFrame(dict_equity_temp)
 	#
-	xirr_value, irr_list_equity, df_2, date_list, closing_balance = year_calculation()
+	xirr_value, irr_list_equity, df_2, date_list, closing_balance, interest_expenses_list, repayment_list = year_calculation()
+	st.write(interest_expenses_list)
+	st.write(repayment_list)
 	df_2 = df_2.append(dict_equity_temp, ignore_index = True)
 	df_2 = df_2.append(dict_terminal_value, ignore_index = True)
 	df_2 = df_2.rename(index=
@@ -646,9 +651,6 @@ def run_data():
 
 
 # btn = st.sidebar.button("Run Model")
-#
-#
-#
 # if btn:
 # 	run_status()
 # 	# basic_calculation()
