@@ -586,8 +586,6 @@ if operation != 0:
 	dict_equity_temp = pd.DataFrame(dict_equity_temp)
 	#
 	xirr_value, irr_list_equity, df_2, date_list, closing_balance, interest_expenses_list, repayment_list = year_calculation()
-	st.write(interest_expenses_list)
-	st.write(repayment_list)
 	df_2 = df_2.append(dict_equity_temp, ignore_index = True)
 	df_2 = df_2.append(dict_terminal_value, ignore_index = True)
 	df_2 = df_2.rename(index=
