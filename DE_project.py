@@ -62,7 +62,7 @@ insurance = int(st.sidebar.number_input('Insurance Cost (Rs. Per 1000)',min_valu
 audit = int(st.sidebar.number_input('Audit Cost (Annual)',min_value=0,value=0,step=1))
 capexrep= int(st.sidebar.number_input('Capex Replacement (% of Asset)',min_value=0,value=10,step=1))/100
 
-capexrepyear= int(st.sidebar.number_input('Capex Replacement (year)',min_value=2,value=10,step=1))
+capexrepyear= int(st.sidebar.number_input('Capex Replacement (year)',min_value=2,value=11,step=1))
 #
 st.sidebar.subheader(' ')
 #
@@ -320,6 +320,7 @@ def year_calculation():
 	# IRR list
 	irr_list_date = [startdate] # dates
 	irr_list_equity = [-equity_invested] # values
+	capexrepyear_temp = capexrepyear
 	for year in range(1,ppayear+1):
 		# calculation part
 		interest_expenses = (np.mean([opening_balance[year-1],closing_balance[year-1]]) )*loaninterest
@@ -341,7 +342,8 @@ def year_calculation():
 		franchise_fee_ass = projectcost * franchise_asset
 		franchise_fee_total = franchise_fee_rev + franchise_fee_ass
 		capex = 0
-		if year != capexrepyear:
+
+		if year != capexrepyear_temp:
 			if franchise_asset != 0 and year == 1:
 					if franchise_revenue != 0:
 						opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit + franchise_fee_ass + franchise_fee_rev, 2)
@@ -355,7 +357,9 @@ def year_calculation():
 			else:
 				opex_cashflow = round(omcharge_year + insurance_project + interest_expenses + audit, 2)
 				franchise_fee = 0
-		elif year == capexrepyear:
+		elif year == capexrepyear_temp:
+			if ppayear == 25 and capexrepyear == 11:
+				capexrepyear_temp += capexrepyear-1
 			capex = projectcost * capexrep
 			if year == 1:
 				st.write("Capex Replacement Year Must Be Above The First Year")
@@ -450,16 +454,11 @@ def year_calculation():
 	,11:'Capex', 12:'Opex Cashflow',13:'Equity/Capex Cashflow',14:'Dates',
 	15:' ',16:'Terminal Value'})
 	#
-	# st.write(repayment)
-	# st.write(revenue_peryear)
-	# st.write(opex_cashflow_peryear)
-	# xirr calculation
 	irr_list_date = irr_list_date + date_years_list
 	irr_list_equity = irr_list_equity + equity_peryear_list
-	# st.write(irr_list_equity)
+
 	xirr_value = round(xirr(irr_list_equity, irr_list_date),4)
 	xirr_value = xirr(irr_list_equity, irr_list_date)
-	# st.write(solartariff_list)
 	#
 	return xirr_value, irr_list_equity,df2, irr_list_date, closing_balance, interest_expenses_list, repayment_list # return xirr_value, irr_list_equity, df2, date_years_list
 
@@ -522,7 +521,7 @@ def exit_value():
 		exit = current_year_list_equity[year+1]/(1/1+xirr_list[x])  # ask for feedback due to odd formula
 		exit_temp = exit + total_payment
 		# exit per kW
-		exit_perkw = exit/syscap
+		exit_perkw = exit_temp/syscap
 		# new equity list
 		current_year_list_equity[year+1] = "	"
 		current_year_list_equity[year] = current_year_list_equity[year]+round(exit)
@@ -533,8 +532,6 @@ def exit_value():
 		new_xirr = xirr(new_equity, irr_list_date)
 		xirr_list.append(new_xirr)
 		# st.write("Year {}".format(year))
-		# st.write(total_payment)
-		# st.write(exit)
 		# list update
 		exit_value_list.append(round(exit_temp))
 		exit_perkw_list.append(round(exit_perkw))
